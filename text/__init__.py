@@ -1,20 +1,47 @@
-""" from https://github.com/keithito/tacotron """
+# coding: utf-8
 import re
+import string
+import numpy as np
+
 from text import cleaners
-from text.symbols import symbols
-from text.symbols import _punctuation as punctuation_symbols
+cleaners = "korean_cleaners"
+from text.symbols import symbols, en_symbols, PAD, EOS
+from text.korean import jamo_to_korean
+
+
 
 # Mappings from symbol to numeric ID and vice versa:
-_symbol_to_id = {s: i for i, s in enumerate(symbols)}
+_symbol_to_id = {s: i for i, s in enumerate(symbols)}   # 80개
 _id_to_symbol = {i: s for i, s in enumerate(symbols)}
+isEn=False
+
 
 # Regular expression matching text enclosed in curly braces:
 _curly_re = re.compile(r'(.*?)\{(.+?)\}(.*)')
 
-# for arpabet with apostrophe
-_apostrophe = re.compile(r"(?=\S*['])([a-zA-Z'-]+)")
+puncuation_table = str.maketrans({key: None for key in string.punctuation})
 
-def text_to_sequence(text):
+def convert_to_en_symbols():
+    '''Converts built-in korean symbols to english, to be used for english training
+    
+'''
+    global _symbol_to_id, _id_to_symbol, isEn
+    if not isEn:
+        print(" [!] Converting to english mode")
+    _symbol_to_id = {s: i for i, s in enumerate(en_symbols)}
+    _id_to_symbol = {i: s for i, s in enumerate(en_symbols)}
+    isEn=True
+
+def remove_puncuations(text):
+    return text.translate(puncuation_table)
+
+def text_to_sequence(text, as_token=False):    
+    cleaner_names = [x.strip() for x in cleaners.split(',')]
+    if ('english_cleaners' in cleaner_names) and isEn==False:
+        convert_to_en_symbols()
+    return _text_to_sequence(text, cleaner_names, as_token)
+
+def _text_to_sequence(text, cleaner_names, as_token):
     '''Converts a string of text to a sequence of IDs corresponding to the symbols in the text.
 
         The text can optionally have ARPAbet sequences enclosed in curly braces embedded
@@ -33,17 +60,27 @@ def text_to_sequence(text):
     while len(text):
         m = _curly_re.match(text)
         if not m:
-            sequence += _symbols_to_sequence(text)
+            sequence += _symbols_to_sequence(_clean_text(text, cleaner_names))
             break
-        sequence += _symbols_to_sequence(m.group(1))
+        sequence += _symbols_to_sequence(_clean_text(m.group(1), cleaner_names))
         sequence += _arpabet_to_sequence(m.group(2))
         text = m.group(3)
 
-    return sequence
+    # Append EOS token
+    sequence.append(_symbol_to_id[EOS])  # [14, 29, 45, 2, 27, 62, 20, 21, 4, 39, 45, 1]
+
+    if as_token:
+        return sequence_to_text(sequence, combine_jamo=True)
+    else:
+        return np.array(sequence, dtype=np.int32)
 
 
-def sequence_to_text(sequence):
+def sequence_to_text(sequence, skip_eos_and_pad=False, combine_jamo=False):
     '''Converts a sequence of IDs back to a string'''
+    cleaner_names=[x.strip() for x in cleaners.split(',')]
+    if 'english_cleaners' in cleaner_names and isEn==False:
+        convert_to_en_symbols()
+        
     result = ''
     for symbol_id in sequence:
         if symbol_id in _id_to_symbol:
@@ -51,17 +88,26 @@ def sequence_to_text(sequence):
             # Enclose ARPAbet back in curly braces:
             if len(s) > 1 and s[0] == '@':
                 s = '{%s}' % s[1:]
-            result += s
-    return result.replace('}{', ' ')
+
+            if not skip_eos_and_pad or s not in [EOS, PAD]:
+                result += s
+
+    result = result.replace('}{', ' ')
+
+    if combine_jamo:
+        return jamo_to_korean(result)
+    else:
+        return result
+
 
 
 def _clean_text(text, cleaner_names):
+    
     for name in cleaner_names:
         cleaner = getattr(cleaners, name)
         if not cleaner:
             raise Exception('Unknown cleaner: %s' % name)
-        text = cleaner(text)
-
+        text = cleaner(text) # '존경하는' --> ['ᄌ', 'ᅩ', 'ᆫ', 'ᄀ', 'ᅧ', 'ᆼ', 'ᄒ', 'ᅡ', 'ᄂ', 'ᅳ', 'ᆫ', '~']
     return text
 
 
@@ -75,46 +121,3 @@ def _arpabet_to_sequence(text):
 
 def _should_keep_symbol(s):
     return s in _symbol_to_id and s is not '_' and s is not '~'
-
-
-def get_arpabet(word, cmudict, index=0):
-    re_start_punc = r"\A\W+"
-    re_end_punc = r"\W+\Z"
-
-    start_symbols = re.findall(re_start_punc, word)
-    if len(start_symbols):
-        start_symbols = start_symbols[0]
-        word = word[len(start_symbols):]
-    else:
-        start_symbols = ''
-
-    end_symbols = re.findall(re_end_punc, word)
-    if len(end_symbols):
-        end_symbols = end_symbols[0]
-        word = word[:-len(end_symbols)]
-    else:
-        end_symbols = ''
-
-    arpabet_suffix = ''
-    if _apostrophe.match(word) is not None and word.lower() != "it's" and word.lower()[-1] == 's':
-        word = word[:-2]
-        arpabet_suffix = ' Z'
-    arpabet = None if word.lower() in HETERONYMS else cmudict.lookup(word)
-
-    if arpabet is not None:
-        return start_symbols + '{%s}' % (arpabet[index] + arpabet_suffix) + end_symbols
-    else:
-        return start_symbols + word + end_symbols
-
-
-def files_to_list(filename):
-    """
-    Takes a text file of filenames and makes a list of filenames
-    """
-    with open(filename, encoding='utf-8') as f:
-        files = f.readlines()
-
-    files = [f.rstrip() for f in files]
-    return files
-
-HETERONYMS = set(files_to_list('data/heteronyms'))

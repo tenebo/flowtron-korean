@@ -1,5 +1,6 @@
-""" adapted from https://github.com/keithito/tacotron """
+# coding: utf-8
 
+# Code based on https://github.com/keithito/tacotron/blob/master/text/cleaners.py
 '''
 Cleaners are transformations that run over the input text at both training and eval time.
 
@@ -13,19 +14,25 @@ hyperparameter. Some cleaners are English-specific. You'll typically want to use
 '''
 
 import re
-from unidecode import unidecode
-from .numbers import normalize_numbers
-from .acronyms import normalize_acronyms
-from .datestime import normalize_datestime
+from .korean import tokenize as ko_tokenize
 
+# Added to support LJ_speech
+from unidecode import unidecode
+from .en_numbers import normalize_numbers as en_normalize_numbers
 
 # Regular expression matching whitespace:
 _whitespace_re = re.compile(r'\s+')
 
+
+def korean_cleaners(text):
+    '''Pipeline for Korean text, including number and abbreviation expansion.'''
+    text = ko_tokenize(text) # '존경하는' --> ['ᄌ', 'ᅩ', 'ᆫ', 'ᄀ', 'ᅧ', 'ᆼ', 'ᄒ', 'ᅡ', 'ᄂ', 'ᅳ', 'ᆫ', '~']
+    return text
+
+
 # List of (regular expression, replacement) pairs for abbreviations:
 _abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in [
     ('mrs', 'misess'),
-    ('ms', 'miss'),
     ('mr', 'mister'),
     ('dr', 'doctor'),
     ('st', 'saint'),
@@ -45,32 +52,15 @@ _abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in 
     ('ft', 'fort'),
 ]]
 
-_safe_abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in [
-    ('no', 'number'),
-]]
-
-
 
 def expand_abbreviations(text):
     for regex, replacement in _abbreviations:
         text = re.sub(regex, replacement, text)
     return text
 
-def expand_safe_abbreviations(text):
-    for regex, replacement in _safe_abbreviations:
-        text = re.sub(regex, replacement, text)
-    return text
 
 def expand_numbers(text):
-    return normalize_numbers(text)
-
-
-def expand_acronyms(text):
-    return normalize_acronyms(text)
-
-
-def expand_datestime(text):
-    return normalize_datestime(text)
+    return en_normalize_numbers(text)
 
 
 def lowercase(text):
@@ -80,24 +70,13 @@ def lowercase(text):
 def collapse_whitespace(text):
     return re.sub(_whitespace_re, ' ', text)
 
-
-def separate_acronyms(text):
-    text = re.sub(r"([0-9]+)([a-zA-Z]+)", r"\1 \2", text)
-    text = re.sub(r"([a-zA-Z]+)([0-9]+)", r"\1 \2", text)
-    return text
-
-
-def remove_hyphens(text):
-    text = re.sub(r'(?<=\w)(-)(?=\w)', ' ', text)
-    return text
-
-
 def convert_to_ascii(text):
+    '''Converts to ascii, existed in keithito but deleted in carpedm20'''
     return unidecode(text)
-
+    
 
 def basic_cleaners(text):
-    '''Basic pipeline that collapses whitespace without transliteration.'''
+    '''Basic pipeline that lowercases and collapses whitespace without transliteration.'''
     text = lowercase(text)
     text = collapse_whitespace(text)
     return text
@@ -111,21 +90,14 @@ def transliteration_cleaners(text):
     return text
 
 
-def flowtron_cleaners(text):
-    text = collapse_whitespace(text)
-    text = remove_hyphens(text)
-    text = expand_datestime(text)
-    text = expand_numbers(text)
-    text = expand_safe_abbreviations(text)
-    text = expand_acronyms(text)
-    return text
-
-
 def english_cleaners(text):
-    '''Pipeline for English text, with number and abbreviation expansion.'''
+    '''Pipeline for English text, including number and abbreviation expansion.'''
     text = convert_to_ascii(text)
     text = lowercase(text)
     text = expand_numbers(text)
     text = expand_abbreviations(text)
     text = collapse_whitespace(text)
     return text
+
+if __name__ == "__main__":
+    print(korean_cleaners('안녕하세요 LG.'))

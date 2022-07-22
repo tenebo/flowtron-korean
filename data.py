@@ -25,7 +25,7 @@ import torch.utils.data
 from scipy.io.wavfile import read
 from scipy.stats import betabinom
 from audio_processing import TacotronSTFT
-from text import text_to_sequence, cmudict, _clean_text, get_arpabet
+from text import text_to_sequence
 
 
 def beta_binomial_prior_distribution(phoneme_count, mel_count,
@@ -59,7 +59,7 @@ def load_wav_to_torch(full_path):
 class Data(torch.utils.data.Dataset):
     def __init__(self, filelist_path, filter_length, hop_length, win_length,
                  sampling_rate, mel_fmin, mel_fmax, max_wav_value, p_arpabet,
-                 cmudict_path, text_cleaners, speaker_ids=None,
+                 text_cleaners, speaker_ids=None,
                  use_attn_prior=False, attn_prior_threshold=1e-4,
                  prior_cache_path="", betab_scaling_factor=1.0, randomize=True,
                  keep_ambiguous=False, seed=1234):
@@ -84,8 +84,6 @@ class Data(torch.utils.data.Dataset):
         self.sampling_rate = sampling_rate
         self.text_cleaners = text_cleaners
         self.p_arpabet = p_arpabet
-        self.cmudict = cmudict.CMUDict(
-            cmudict_path, keep_ambiguous=keep_ambiguous)
         if speaker_ids is None:
             self.speaker_ids = self.create_speaker_lookup_table(
                 self.audiopaths_and_text)
@@ -158,11 +156,6 @@ class Data(torch.utils.data.Dataset):
         return torch.LongTensor([self.speaker_ids[int(speaker_id)]])
 
     def get_text(self, text):
-        text = _clean_text(text, self.text_cleaners)
-        words = re.findall(r'\S*\{.*?\}\S*|\S+', text)
-        text = ' '.join([get_arpabet(word, self.cmudict)
-                         if random.random() < self.p_arpabet else word
-                         for word in words])
         text_norm = torch.LongTensor(text_to_sequence(text))
         return text_norm
 
