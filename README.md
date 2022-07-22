@@ -1,3 +1,11 @@
+Flowtron 한국어 버전입니다
+
+### 참조 ###
+- https://github.com/NVIDIA/flowtron
+- https://github.com/hccho2/Tacotron2-Wavenet-Korean-TTS
+
+---
+
 ![Flowtron](https://nv-adlr.github.io/images/flowtron_logo.png "Flowtron")
 
 ## Flowtron: an Autoregressive Flow-based Network for Text-to-Mel-spectrogram Synthesis
