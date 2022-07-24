@@ -1,6 +1,6 @@
 {
     "train_config": {
-        "output_directory": "/outdir",
+        "output_directory": "/content/drive/My Drive/Colab Notebooks/data/flowtron",
         "epochs": 10000000,
         "optim_algo": "RAdam",
         "learning_rate": 1e-3,
@@ -28,7 +28,6 @@
         "validation_files": "filelists/ljs_audio_text_val_filelist.txt",
         "text_cleaners": ["korean_cleaners"],
         "p_arpabet": 0.5,
-        "cmudict_path": "data/cmudict_dictionary",
         "sampling_rate": 22050,
         "filter_length": 1024,
         "hop_length": 256,

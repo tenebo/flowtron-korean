@@ -4,7 +4,7 @@ import string
 import numpy as np
 
 from text import cleaners
-cleaners = "korean_cleaners"
+hparam_cleaners = "korean_cleaners"
 from text.symbols import symbols, en_symbols, PAD, EOS
 from text.korean import jamo_to_korean
 
@@ -36,7 +36,7 @@ def remove_puncuations(text):
     return text.translate(puncuation_table)
 
 def text_to_sequence(text, as_token=False):    
-    cleaner_names = [x.strip() for x in cleaners.split(',')]
+    cleaner_names = [x.strip() for x in hparam_cleaners.split(',')]
     if ('english_cleaners' in cleaner_names) and isEn==False:
         convert_to_en_symbols()
     return _text_to_sequence(text, cleaner_names, as_token)
@@ -77,7 +77,7 @@ def _text_to_sequence(text, cleaner_names, as_token):
 
 def sequence_to_text(sequence, skip_eos_and_pad=False, combine_jamo=False):
     '''Converts a sequence of IDs back to a string'''
-    cleaner_names=[x.strip() for x in cleaners.split(',')]
+    cleaner_names=[x.strip() for x in hparam_cleaners.split(',')]
     if 'english_cleaners' in cleaner_names and isEn==False:
         convert_to_en_symbols()
         
